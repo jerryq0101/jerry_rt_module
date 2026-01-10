@@ -1,0 +1,4 @@
+config BR2_PACKAGE_IRQ_BUTTON_DEMO
+    bool "irq_button_demo"
+    help
+      Simple IRQ threaded-handler demo module.

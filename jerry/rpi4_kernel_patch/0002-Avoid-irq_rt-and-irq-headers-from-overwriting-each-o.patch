@@ -1,0 +1,25 @@
+From 1406d474d9f155b318cc907ffa2f6f3e4ebc1072 Mon Sep 17 00:00:00 2001
+From: jerry utm machine <jerryq0501@gmail.com>
+Date: Thu, 20 Nov 2025 16:49:46 +0000
+Subject: [PATCH 2/2] Avoid irq_rt and irq headers from overwriting each other
+
+---
+ include/trace/events/irq_rt.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/trace/events/irq_rt.h b/include/trace/events/irq_rt.h
+index a6b82de41..dee272677 100644
+--- a/include/trace/events/irq_rt.h
++++ b/include/trace/events/irq_rt.h
+@@ -1,7 +1,7 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ #undef TRACE_SYSTEM
+ // name space for this group of events
+-#define TRACE_SYSTEM irq
++#define TRACE_SYSTEM irq_rt
+ 
+ #if !defined(_TRACE_IRQ_RT_H) || defined(TRACE_HEADER_MULTI_READ)
+ #define _TRACE_IRQ_RT_H
+-- 
+2.43.0
+

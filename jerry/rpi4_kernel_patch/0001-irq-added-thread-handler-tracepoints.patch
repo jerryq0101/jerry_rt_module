@@ -1,0 +1,146 @@
+From 8e8b9a3d151b4a0e89e19407e2ac5554c8e57c71 Mon Sep 17 00:00:00 2001
+From: jerry utm machine <jerryq0501@gmail.com>
+Date: Thu, 20 Nov 2025 05:46:23 +0000
+Subject: [PATCH] irq: added thread handler tracepoints
+
+---
+ include/trace/events/irq_rt.h | 73 +++++++++++++++++++++++++++++++++++
+ kernel/irq/Makefile           |  3 ++
+ kernel/irq/irq_rt_trace.c     |  3 ++
+ kernel/irq/manage.c           |  6 +++
+ 4 files changed, 85 insertions(+)
+ create mode 100644 include/trace/events/irq_rt.h
+ create mode 100644 kernel/irq/irq_rt_trace.c
+
+diff --git a/include/trace/events/irq_rt.h b/include/trace/events/irq_rt.h
+new file mode 100644
+index 000000000..a6b82de41
+--- /dev/null
++++ b/include/trace/events/irq_rt.h
+@@ -0,0 +1,73 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++// name space for this group of events
++#define TRACE_SYSTEM irq
++
++#if !defined(_TRACE_IRQ_RT_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_IRQ_RT_H
++
++#include <linux/tracepoint.h>
++
++struct irqaction;
++struct softirq_action;
++
++/**
++ * irq_threaded_handler_entry - called immediately before the threaded irq calls the handler function
++ * @irq: irq number 
++ * @action: pointer to struct irqaction
++ * 
++ * The struct pointed to by irqaction contains various useful metrics.
++ * In particular we care about the thread task_struct which contains the pid of 
++ * the current irq handler thread. This allow us to match time to a pid
++ */
++TRACE_EVENT(irq_threaded_handler_entry,
++
++        TP_PROTO(int irq, struct irqaction *action),
++
++        TP_ARGS(irq, action),
++
++	TP_STRUCT__entry(
++		__field(	int,	irq		)
++		__string(	name,	action->name	)
++	),
++
++	TP_fast_assign(
++		__entry->irq = irq;
++		__assign_str(name);
++	),
++
++	TP_printk("irq=%d name=%s", __entry->irq, __get_str(name))
++);
++
++/**
++ * irq_threaded_handler_exit - called immediately after the handling for a single irq in our specific irqaction thread
++ * @irq: irq number
++ * @action: pointer to struct irqaction
++ * @ret: return value
++ *
++ * This allows us to track time for the complete handling of a single interrupt in our irq thread.
++ */
++TRACE_EVENT(irq_threaded_handler_exit,
++
++	TP_PROTO(int irq, struct irqaction *action, int ret),
++
++	TP_ARGS(irq, action, ret),
++
++	TP_STRUCT__entry(
++		__field(	int,	irq	)
++		__field(	int,	ret	)
++	),
++
++	TP_fast_assign(
++		__entry->irq	= irq;
++		__entry->ret	= ret;
++	),
++
++	TP_printk("irq=%d ret=%s",
++		  __entry->irq, __entry->ret ? "handled" : "unhandled")
++);
++
++#endif /*  _TRACE_IRQ_RT_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/irq/Makefile b/kernel/irq/Makefile
+index f19d3080b..9bd1687a8 100644
+--- a/kernel/irq/Makefile
++++ b/kernel/irq/Makefile
+@@ -19,3 +19,6 @@ obj-$(CONFIG_GENERIC_IRQ_IPI_MUX) += ipi-mux.o
+ obj-$(CONFIG_SMP) += affinity.o
+ obj-$(CONFIG_GENERIC_IRQ_DEBUGFS) += debugfs.o
+ obj-$(CONFIG_GENERIC_IRQ_MATRIX_ALLOCATOR) += matrix.o
++
++# Tracepoint definition file
++obj-y += irq_rt_trace.o
+diff --git a/kernel/irq/irq_rt_trace.c b/kernel/irq/irq_rt_trace.c
+new file mode 100644
+index 000000000..30dae7bed
+--- /dev/null
++++ b/kernel/irq/irq_rt_trace.c
+@@ -0,0 +1,3 @@
++#include <linux/interrupt.h> // to allow for the generated code to know what the struct looks like 
++#define CREATE_TRACE_POINTS
++#include <trace/events/irq_rt.h>
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index f0803d6bd..a5f52ca3b 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -22,6 +22,8 @@
+ #include <uapi/linux/sched/types.h>
+ #include <linux/task_work.h>
+ 
++#include <trace/events/irq_rt.h>
++
+ #include "internals.h"
+ 
+ #if defined(CONFIG_IRQ_FORCED_THREADING) && !defined(CONFIG_PREEMPT_RT)
+@@ -1320,12 +1322,16 @@ static int irq_thread(void *data)
+ 
+ 	while (!irq_wait_for_interrupt(desc, action)) {
+ 		irqreturn_t action_ret;
++                
++                trace_irq_threaded_handler_entry(action->irq, action);
+ 
+ 		action_ret = handler_fn(desc, action);
+ 		if (action_ret == IRQ_WAKE_THREAD)
+ 			irq_wake_secondary(desc, action);
+ 
+ 		wake_threads_waitq(desc);
++
++                trace_irq_threaded_handler_exit(action->irq, action, action_ret);
+ 	}
+ 
+ 	/*
+-- 
+2.43.0
+

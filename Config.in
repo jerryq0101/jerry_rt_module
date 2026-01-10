@@ -1,0 +1,9 @@
+config BR2_PACKAGE_JERRY_RT_MODULE
+        bool "jerry_rt_module"
+        depends on BR2_LINUX_KERNEL
+        help
+                RT latency monitoring kernel module for PREEMPT_RT BR2_LINUX_KERNEL
+
+                This module tracks wakeup latency for RT tasks to help verify RT task integration with the system
+
+                [some github link]
