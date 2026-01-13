@@ -1,4 +1,4 @@
-# jerry_rt_module
+# MIGRATED TO <a href="https://github.com/jerryq0101/rt_tracer">ORIGINAL REPO</a>
 
 This is a low overhead kernel module for quickly identifying worst case scheduler latency, response time, and IRQ handling delays on PREEMPT / PREEMPT_RT Linux.
 
